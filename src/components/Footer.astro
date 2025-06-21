@@ -1,0 +1,18 @@
+---
+if (!Astro.site) {
+    throw new Error("Astro.site is not defined. Set 'site' in astro.config.mjs.");
+}
+
+const site = (new URL(Astro.site)).href.replace('labs.', '')
+const disclaimer = site + 'disclaimer'
+const privacy = site + 'privacy'
+---
+
+<footer class="py-4 px4 text-xs text-center slide-enter-content pb32">
+    <p style="--enter-stage: 10 !important;">
+        <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer" class="underline">CC BY-NC-SA 4.0</a> 2023-PRESENT © Andka | <a href={privacy} class="underline" rel="nofollow noopener noreferrer">Privacy Policy</a> | <a href={disclaimer} class="underline" rel="nofollow noopener noreferrer">Disclaimer</a> | <a href="https://status.andka.my.id/" target="_blank" rel="external nofollow noopener noreferrer" class="underline">Status</a>
+    </p>
+    <p style="--enter-stage: 11 !important;">
+        Proudly created by <a href="https://github.com/xirf" target="_blank" rel="nofollow noopener noreferrer" class="underline">Xirf</a> and Powered by <a href="https://astro.build" target="_blank" rel="nofollow noopener noreferrer" class="underline">Astro</a>, <a href="https://unocss.dev/" target="_blank" rel="nofollow noopener noreferrer" class="underline">UnoCSS</a>
+    </p>
+</footer>

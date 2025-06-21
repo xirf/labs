@@ -1,0 +1,17 @@
+---
+import ToggleTheme from './ToggleTheme.astro';
+---
+<header class="flex items-center justify-between px-4 py-2">
+    <!-- Left: Logo -->
+    <div class="flex items-center space-x-2 leading-none">
+        <i class="i-solar-test-tube-linear text-xl"/>
+        <h1 class="text-lg relative font-bold">Andka <span class="ml-1 leading-none text-l-base translate-y-5px absolute bg-l-on-base py-2px px-4px rounded-full dark:(bg-d-on-base text-d-base) text-8px">labs</span></h1>
+    </div>
+
+    <!-- Right: Icons + Buttons -->
+    <div class="flex items-center space-x-3">
+        <ToggleTheme />
+        <a class="i-myna-brand-github text-xl cursor-pointer" title="github" href="https://github.com/xirf" aria-label="github"/>
+    </div>
+</header>
+

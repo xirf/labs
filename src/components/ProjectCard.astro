@@ -1,0 +1,42 @@
+---
+interface Props {
+    imageUrl: string;
+    title: string;
+    description: string;
+    github?: string;
+    url: string;
+    date: Date;
+    index: number;
+}
+
+const {imageUrl, github, title, description, url, date, index} = Astro.props;
+
+const dateFormat = new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+})
+---
+
+<div class="slide-enter" style={`--enter-stage: ${index};`}>
+    <a class="border border-gray-500/25 bg-l-base dark:(bg-d-base) rounded-lg block of-hidden group hover:(scale-101 shadow-xl z-10) transition-all duration-500 relative"
+       href={url}>
+        <img src={imageUrl} class="w-full border-b border-gray-500/10 w-full aspect-video bg-gray-500" alt={title}/>
+        <div class="prose prose-sm p4 m0 pb3">
+            <div class="prose m-auto slide-enter-content">
+                {description}
+                {github && (
+                        <div class="mt-2">
+                            <a href={github}
+                               target="_blank"
+                               rel="noopener noreferrer"
+                               class="text-blue-500 hover:underline">
+                                <i class="i-myna-brand-github w4 h4"></i> {( new URL ( github ) ).pathname}
+                            </a>
+                        </div>
+                )}
+            </div>
+            <div class="op50 text-sm pt2">{dateFormat.format ( date )}</div>
+        </div>
+    </a>
+</div>

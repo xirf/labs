@@ -1,14 +1,33 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import LoadingIndicator from '../components/LoadingIndicator.astro'
+import Header from '../components/Header.astro'
+import Footer from '../components/Footer.astro'
+import background from '../assets/background.svg'
+import '../styles/global.css'
+
+interface Props {
+	title: string;
+	description: string;
+	image?: string;
+}
+
+const props = Astro.props
+---
+
 <!doctype html>
 <html lang="en">
 	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro Basics</title>
+		<BaseHead description={props.description} title={props.title} image={props.image} />
 	</head>
-	<body>
-		<slot />
+	<body class=" dark:(bg-d-base text-d-on-base) bg-l-base text-l-on-base font-sans pb-5 md:pb-3em">
+		<a href="#main" class="sr-only focus:not-sr-only" tabindex="0">Skip to main content</a>
+		<LoadingIndicator color="#bcc0cc" height="2px" threshold={0} animationDuration={200} />
+		<Header />
+		<main id="main" class="pb-10 lg:pb-0">
+			<slot />
+		</main>
+		<Footer />
 	</body>
 </html>
 
