@@ -46,3 +46,21 @@ All commands are run from the root of the project, from a terminal:
 ## 👀 Want to learn more?
 
 Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+
+## 🔗 Blockchain Simulator
+
+This project includes an experimental blockchain simulator located under `src/content/bockhain-simulator`. To send tokens to another node:
+
+1. Start the dev server with `npm run dev` and open a few browser tabs.
+2. In each tab, the header shows the node ID and current balance.
+3. Use the **Create Transaction** panel to send a message and amount.
+4. Click **Randomize** to pick a random active peer, then **Send Transaction**.
+
+Example code for sending a transfer programmatically:
+
+```ts
+const node = blockchain.node();
+node.createTx('hello', randomPeerId, 10);
+```
+
+The balance preview below the amount field displays your current and expected balance after the transaction.
