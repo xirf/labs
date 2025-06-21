@@ -11,13 +11,13 @@
             </div>
         </div>
         <div class="p-4 max-h-92 overflow-y-auto">
-            <div v-if="activityLogs.length === 0"
+            <div v-if="activityLogs?.length === 0"
                  class="text-center text-gray-500 py-4">
                 No activity yet
             </div>
             <div v-else
                  class="space-y-1">
-                <div v-for="log in activityLogs.slice().reverse().slice(0, 50)"
+                <div v-for="log in activityLogs?.slice().reverse().slice(0, 50)"
                      :key="log.id"
                      class="text-xs p-1 rounded break-all"
                      :class="{
@@ -36,18 +36,18 @@
                     <div class="flex items-start gap-1">
                         <i class="shrink-0 translate-y-0.5"
                            :class="{
-                               'i-myna-file-check': log.type === 'transaction',
-                               'i-lucide-pickaxe': log.type === 'mining',
-                               'i-myna-code': log.type === 'contract',
-                               'i-myna-globe': log.type === 'network',
-                               'i-myna-star': log.type === 'found',
-                               'i-lucide-info': log.type === 'info',
-                               'i-solar-hand-shake-linear': log.type === 'consensus',
-                               'i-solar-crown-broken': log.type === 'governance',
-                               'i-myna-shield-check': log.type === 'validation',
-                               'i-myna-users': log.type === 'peer',
-                               'i-solar-shield-warning-outline': log.type === 'error'
-                           }"></i>
+                            'i-myna-file-check': log.type === 'transaction',
+                            'i-lucide-pickaxe': log.type === 'mining',
+                            'i-myna-code': log.type === 'contract',
+                            'i-myna-globe': log.type === 'network',
+                            'i-myna-star': log.type === 'found',
+                            'i-lucide-info': log.type === 'info',
+                            'i-solar-hand-shake-linear': log.type === 'consensus',
+                            'i-solar-crown-broken': log.type === 'governance',
+                            'i-myna-shield-check': log.type === 'validation',
+                            'i-myna-users': log.type === 'peer',
+                            'i-solar-shield-warning-outline': log.type === 'error'
+                        }"></i>
                         <div class="flex-1">
                             <span class="text-gray-500">{{ formatTime(log.timestamp) }}</span>
                             <span class="ml-1">{{ log.message }}</span>
@@ -61,11 +61,13 @@
 
 <script setup lang="ts">
 import { inject } from 'vue'
-const blockchain = inject('blockchainNode')
-const activityLogs = blockchain.activityLogs
+import type { BlockchainNodeState } from '../main.vue'
+
+const blockchain = inject<BlockchainNodeState>('blockchainNode')
+const activityLogs = blockchain?.activityLogs
 
 const clearLogs = () => {
-    blockchain.clearActivityLogs()
+    blockchain?.clearActivityLogs()
 }
 const formatTime = (timestamp: number) => {
     const date = new Date(timestamp)

@@ -20,7 +20,7 @@
       </button>
 
       <!-- Contract Call -->
-      <div v-if="Object.keys(blockchain.contracts.value).length > 0"
+      <div v-if="Object.keys(blockchain?.contracts.value || {}).length > 0"
            class="pt-4 border-t border-gray-200 dark:border-gray-600">
         <div class="space-y-3">
           <div>
@@ -28,7 +28,7 @@
             <select v-model="selectedContract"
                     class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700">
               <option value="">Select contract...</option>
-              <option v-for="addr in Object.keys(blockchain.contracts.value)"
+              <option v-for="addr in Object.keys(blockchain?.contracts.value || {})"
                       :key="addr"
                       :value="addr">
                 {{ addr.slice(0, 8) }}...{{ addr.slice(-6) }}
@@ -55,23 +55,24 @@
 
 <script setup lang="ts">
 import { ref, inject } from 'vue'
+import type {BlockchainNodeState} from '../main.vue';
 
-const blockchain = inject('blockchainNode')
+const blockchain = inject<BlockchainNodeState>('blockchainNode')
 const contractCode = ref('state.counter = (state.counter || 0) + 1;')
 const selectedContract = ref('')
 const contractInput = ref('')
 
 const deployContract = () => {
-  const node = blockchain.node()
-  if (node && contractCode.value.trim()) {
+  const node = blockchain?.node()
+  if (node && contractCode.value.trim() && blockchain && blockchain.contracts.value) {
     node.deployContract(contractCode.value.trim())
     blockchain.contracts.value = node.contracts
   }
 }
 
 const callContract = () => {
-  const node = blockchain.node()
-  if (node && selectedContract.value && contractInput.value.trim()) {
+  const node = blockchain?.node()
+  if (node && selectedContract.value && contractInput.value.trim() && blockchain && blockchain.contracts.value) {
     node.callContract(selectedContract.value, contractInput.value.trim())
     contractInput.value = ''
     blockchain.contracts.value = node.contracts

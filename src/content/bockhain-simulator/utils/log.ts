@@ -1,21 +1,20 @@
 import { ref } from "vue";
 
-// transaction
-// mining
-// contract
-// network
-// error
-// info
-// consensus
-// governance
-// validation
-// peer
-
 export interface ActivityLog {
-    id: number;                                                                 // Unique ID for the log entry
-    type: 'found'| 'transaction' | 'mining' | 'contract' | 'network' | 'error' | 'info' | 'consensus' | 'governance' | 'validation' | 'peer'; // Type of activity
-    message: string;                                                            // Description of the activity
-    timestamp: number;                                                          // Unix timestamp of when the activity occurred
+    id: number;         // Unique ID for the log entry
+    type: 'found'       // Type of activity
+    | 'transaction'
+    | 'mining'
+    | 'contract'
+    | 'network'
+    | 'error'
+    | 'info'
+    | 'consensus'
+    | 'governance'
+    | 'validation'
+    | 'peer';
+    message: string;     // Description of the activity
+    timestamp: number;   // Unix timestamp of when the activity occurred
 }
 
 export const activityLogs = ref<ActivityLog[]>([]); // Array to hold activity logs

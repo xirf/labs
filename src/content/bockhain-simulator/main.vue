@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen bg-l-base dark:bg-d-base text-l-on-base dark:text-d-on-base font-sans">
     <AppHeader />
-    
+
     <div class="max-w-7xl mx-auto px-4 py-6">
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Left Column: Controls & Actions -->
@@ -27,7 +27,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, provide, onMounted, onUnmounted } from 'vue'
+import { ref, provide, onMounted, onUnmounted, type Ref } from 'vue'
 import { BlockchainNode } from './services/BlockchainNode.js'
 import { activityLogs, clearActivityLogs } from './utils/log.ts'
 
@@ -40,19 +40,35 @@ import Mempool from './components/Mempool.vue'
 import ActivityLogs from './components/ActivityLogs.vue'
 import NetworkPeers from './components/NetworkPeers.vue'
 import DeployedContracts from './components/DeployedContracts.vue'
+import type { Block } from './models/Block.ts'
+import type { Transaction } from './models/Transaction.ts'
 
 // Reactive state
 const nodeId = ref('')
 const mining = ref(false)
 const difficulty = ref(4)
-const chain = ref([])
-const mempool = ref([])
+const chain = ref<Block[]>([])
+const mempool = ref<Transaction[]>([])
 const peers = ref(new Set())
 const contracts = ref({})
 const balances = ref({})
 
 // Node instance
 let node: BlockchainNode | null = null
+
+export interface BlockchainNodeState {
+  node: () => BlockchainNode | null,
+  nodeId: Ref<string>,
+  mining: Ref<Boolean>,
+  difficulty: Ref<number>,
+  chain: Ref<Block[]>,
+  mempool: Ref<Transaction[]>,
+  peers: Ref<Set<string>>,
+  contracts: Ref<Record<string, any>>,
+  balances: Ref<Record<string, number>>,
+  activityLogs: Ref<any[]>,
+  clearActivityLogs: () => void
+}
 
 // Provide blockchain node and state
 provide('blockchainNode', {
@@ -69,7 +85,7 @@ provide('blockchainNode', {
   clearActivityLogs
 })
 
-const formatTime = (timestamp) => {
+const formatTime = (timestamp: string) => {
   return new Date(timestamp).toLocaleTimeString()
 }
 
@@ -109,8 +125,8 @@ onMounted(() => {
 
   // Initial state
   const initialState = node.getState()
-  chain.value = initialState.chain || []
-  mempool.value = initialState.mempool || []
+  chain.value = initialState.chain
+  mempool.value = initialState.mempool
   peers.value = initialState.peers || new Set()
   contracts.value = node.contracts || {}
   balances.value = initialState.balances || {}

@@ -2,7 +2,7 @@
   <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
     <div class="p-4 border-b border-gray-200 dark:border-gray-700">
       <h2 class="text-lg font-semibold flex items-center gap-2">
-        <i class="i-myna-pickaxe text-orange-500"></i>
+        <i class="i-lucide-pickaxe text-orange-500"></i>
         Mining
       </h2>
     </div>
@@ -38,18 +38,29 @@
 </template>
 
 <script setup lang="ts">
-import { inject } from 'vue'
+import { inject, type Ref } from 'vue'
+import type { BlockchainNode } from '../services/BlockchainNode'
 
-const blockchain = inject('blockchainNode')
+interface BlockchainService {
+  node: () => BlockchainNode | null
+  difficulty: Ref<number>
+  mining: Ref<boolean>
+}
 
-const updateDifficulty = () => {
+const blockchain = inject<BlockchainService>('blockchainNode')
+
+if (!blockchain) {
+  throw new Error('BlockchainNode service not provided')
+}
+
+const updateDifficulty = (): void => {
   const node = blockchain.node()
   if (node) {
     node.updateDifficulty(blockchain.difficulty.value)
   }
 }
 
-const startMining = () => {
+const startMining = (): void => {
   const node = blockchain.node()
   if (node && !blockchain.mining.value) {
     node.startMining(blockchain.difficulty.value)
@@ -57,7 +68,7 @@ const startMining = () => {
   }
 }
 
-const stopMining = () => {
+const stopMining = (): void => {
   const node = blockchain.node()
   if (node && blockchain.mining.value) {
     node.stopMining()
@@ -65,7 +76,7 @@ const stopMining = () => {
   }
 }
 
-const resetBlockchain = () => {
+const resetBlockchain = (): void => {
   const node = blockchain.node()
   if (node && confirm('Are you sure you want to reset the blockchain? This will clear all blocks, transactions, and contracts across all connected nodes.')) {
     node.resetBlockchain()

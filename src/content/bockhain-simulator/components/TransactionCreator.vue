@@ -48,14 +48,15 @@
 
 <script setup lang="ts">
 import { ref, inject, computed } from 'vue'
+import type { BlockchainNodeState } from '../main.vue'
 
-const blockchain = inject('blockchainNode')
+const blockchain = inject<BlockchainNodeState>('blockchainNode')
 const txPayload = ref('')
 const txTo = ref('')
 const txAmount = ref(0)
 
 const currentBalance = computed(() => {
-  return blockchain.balances.value[blockchain.nodeId.value] || 0
+  return blockchain?.balances.value[blockchain.nodeId.value] || 0
 })
 
 const afterBalance = computed(() => {
@@ -63,7 +64,7 @@ const afterBalance = computed(() => {
 })
 
 const createTransaction = () => {
-  const node = blockchain.node()
+  const node = blockchain?.node()
   if (!node) return
 
   if (!txTo.value.trim()) {
@@ -88,7 +89,7 @@ const createTransaction = () => {
 }
 
 const getRandomNodeId = () => {
-  const peers = Array.from(blockchain.peers.value).filter(p => p !== blockchain.nodeId.value)
+  const peers = Array.from(blockchain?.peers.value || []).filter(p => p !== blockchain?.nodeId.value)
   if (peers.length > 0) {
     const randomPeer = peers[Math.floor(Math.random() * peers.length)]
     txTo.value = randomPeer

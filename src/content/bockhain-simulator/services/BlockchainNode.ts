@@ -46,7 +46,7 @@ export class BlockchainNode {
     this.peerLastSeen = new Map([[this.id, Date.now()]]);
     // --- infra ---------------------------------------------------------------
     this.bus = new LocalStorageBus(this.id, this._onBusMessage.bind(this));
-    this.consensus = new PoAConsensus( this.id, m => this.bus.broadcast(m), () => this.peers);
+    this.consensus = new PoAConsensus(this.id, m => this.bus.broadcast(m), () => this.peers);
     this.consensus.onCommit(this._commitBlock.bind(this));
     // --- events --------------------------------------------------------------
     this.listeners = {
@@ -91,7 +91,11 @@ export class BlockchainNode {
 
 
 
-  /* =============== PUBLIC API (UI) =============== */
+  /* ============================================================================ */
+  /*
+  /* PUBLIC API (exposed to UI)
+  /*
+  /* ============================================================================ */
   on(evt: string, cb: (state: any) => void) {
     (this.listeners[evt] || []).push(cb);
   }
@@ -225,8 +229,11 @@ export class BlockchainNode {
     });
   }
 
-  /* =============== PRIVATE =============== 
-  /* This is a private method to emit events to listeners */
+  /* ============================================================================ */
+  /*
+  /* PRIVATE API (internal use) 
+  /*
+  /* ============================================================================ */
   _emit(evt: string) {
     for (const f of this.listeners[evt]) f(this.getState());
   }
@@ -313,113 +320,139 @@ export class BlockchainNode {
     }
   }
 
+
+  private _handleHello(msg: BlockchainNodeMessage) {
+    this.peers.add(msg.from);
+    this.peerLastSeen.set(msg.from, Date.now());
+    this._emit('peers');
+    if (msg.from !== this.id) {
+      this.bus.broadcast({ type: 'HELLO_ACK', from: this.id, to: msg.from });
+    }
+    addActivityLog('peer', `New peer ${msg.from} joined the network`);
+  }
+
+  private _handleHelloAck(msg: BlockchainNodeMessage) {
+    if (msg.to === this.id) {
+      this.peers.add(msg.from);
+      this.peerLastSeen.set(msg.from, Date.now());
+      this._emit('peers');
+    }
+    addActivityLog('network', `Node ${this.id} acknowledged peer ${msg.from}`);
+  }
+
+  private _handleGoodbye(msg: BlockchainNodeMessage) {
+    this.peers.delete(msg.from);
+    this.peerLastSeen.delete(msg.from);
+    this._emit('peers');
+    addActivityLog('peer', `Peer ${msg.from} left the network`);
+  }
+
+  private _handleHeartbeat(msg: BlockchainNodeMessage) {
+    this.peers.add(msg.from);
+    this.peerLastSeen.set(msg.from, Date.now());
+  }
+
+  private _handleDifficultyUpdate(msg: BlockchainNodeMessage) {
+    if (msg.difficulty && msg.difficulty !== this.difficulty) {
+      if (this.mining) {
+        this.stopMining();
+      }
+      this.difficulty = msg.difficulty;
+      localStorage.setItem('networkDifficulty', msg.difficulty.toString());
+      this._emit('difficulty');
+      addActivityLog('network', `Difficulty updated to ${msg.difficulty} by ${msg.from}`);
+    }
+  }
+
+  private _handleTransaction(msg: BlockchainNodeMessage) {
+    if (msg.tx && !this.mempool.find(t => t.id === msg.tx!.id)) {
+      this.mempool.push(msg.tx);
+      this._emit('mempool');
+      this.bus.broadcast(msg);
+    }
+    addActivityLog('transaction', `Node ${this.id} received transaction ${msg.tx!.id} from ${msg.from}`);
+  }
+
+  private _handleNewBlock(msg: BlockchainNodeMessage) {
+    if (msg.block) {
+      this._validateAndProposeBlock(msg.block);
+    }
+    addActivityLog('network', `Node ${this.id} received new block ${msg.block!.hash} from ${msg.from}`);
+  }
+
+  private async _validateAndProposeBlock(block: Block) {
+    const raw = `${block.index}|${block.prevHash}|${block.timestamp}|${block.nonce}|${JSON.stringify(block.transactions)}`;
+    const hash = await sha256(raw);
+
+    if (hash !== block.hash) {
+      addActivityLog('validation', `Block ${block.hash} failed validation - invalid hash`);
+      return;
+    }
+
+    addActivityLog('validation', `Block ${block.hash} validation successful`);
+    this.consensus.propose(block);
+  }
+
+  private _handleBlockchainReset(msg: BlockchainNodeMessage) {
+    if (msg.from === this.id) return; // Don't reset if we initiated it
+
+    if (this.mining) {
+      this.stopMining();
+    }
+
+    this._resetLocalState();
+    this._emitStateChanges();
+    addActivityLog('network', `Blockchain reset by ${msg.from}`);
+  }
+
+  private _resetLocalState() {
+    this.chain = [];
+    this.mempool = [];
+    this.contracts = {};
+    this.balances = { [this.id]: 100 };
+    this.difficulty = 4;
+
+    localStorage.removeItem('chain');
+    localStorage.removeItem('balances');
+    localStorage.setItem('networkDifficulty', '4');
+  }
+
+  private _emitStateChanges() {
+    this._emit('chain');
+    this._emit('mempool');
+    this._emit('balances');
+    this._emit('contracts');
+  }
+
+  private _handleVote(msg: BlockchainNodeMessage) {
+    if (msg.block) {
+      this.consensus.handleMessage({
+        type: 'VOTE',
+        from: msg.from,
+        blockHash: msg.block.hash,
+        block: msg.block
+      });
+    }
+  }
+
   _onBusMessage(msg: BlockchainNodeMessage) {
-    if (!msg || !msg.type || !msg.from) return; // Fixed: removed incorrect validation
+    if (!msg || !msg.type || !msg.from) return;
 
-    switch (msg.type) {
-      case 'HELLO':
-        this.peers.add(msg.from);
-        this.peerLastSeen.set(msg.from, Date.now());
-        this._emit('peers');
-        if (msg.from !== this.id) this.bus.broadcast({ type: 'HELLO_ACK', from: this.id, to: msg.from });
-        addActivityLog('peer', `New peer ${msg.from} joined the network`);
-        break;
-      case 'HELLO_ACK':
-        if (msg.to === this.id) {
-          this.peers.add(msg.from);
-          this.peerLastSeen.set(msg.from, Date.now());
-          this._emit('peers');
-        }
-        addActivityLog('network', `Node ${this.id} acknowledged peer ${msg.from}`);
-        break;
-      case 'GOODBYE':
-        this.peers.delete(msg.from);
-        this.peerLastSeen.delete(msg.from);
-        this._emit('peers');
-        addActivityLog('peer', `Peer ${msg.from} left the network`);
-        break;
-      case 'HEARTBEAT':
-        this.peers.add(msg.from);
-        this.peerLastSeen.set(msg.from, Date.now());
-        break;
-      case 'DIFFICULTY_UPDATE':
-        if (msg.difficulty && msg.difficulty !== this.difficulty) {
-          // Stop all mining if difficulty changes
-          if (this.mining) {
-            this.stopMining();
-          }
+    const handlers: { [key: string]: (msg: BlockchainNodeMessage) => void } = {
+      'HELLO': this._handleHello.bind(this),
+      'HELLO_ACK': this._handleHelloAck.bind(this),
+      'GOODBYE': this._handleGoodbye.bind(this),
+      'HEARTBEAT': this._handleHeartbeat.bind(this),
+      'DIFFICULTY_UPDATE': this._handleDifficultyUpdate.bind(this),
+      'TX': this._handleTransaction.bind(this),
+      'NEW_BLOCK': this._handleNewBlock.bind(this),
+      'BLOCKCHAIN_RESET': this._handleBlockchainReset.bind(this),
+      'VOTE': this._handleVote.bind(this)
+    };
 
-          this.difficulty = msg.difficulty;
-          localStorage.setItem('networkDifficulty', msg.difficulty.toString());
-          this._emit('difficulty');
-          addActivityLog('network', `Difficulty updated to ${msg.difficulty} by ${msg.from}`);
-        }
-        break;
-      case 'TX':
-        if (msg.tx && !this.mempool.find(t => t.id === msg.tx!.id)) {
-          this.mempool.push(msg.tx);
-          this._emit('mempool');
-          // further relay
-          this.bus.broadcast(msg);
-        }
-        addActivityLog('transaction', `Node ${this.id} received transaction ${msg.tx!.id} from ${msg.from}`);
-        break;
-      case 'NEW_BLOCK':
-        if (msg.block) {
-          // verify PoW quickly
-          (async () => {
-            const raw = `${msg.block!.index}|${msg.block!.prevHash}|${msg.block!.timestamp}|${msg.block!.nonce}|${JSON.stringify(msg.block!.transactions)}`;
-            const h = await sha256(raw);
-            if (h !== msg.block!.hash) {
-              addActivityLog('validation', `Block ${msg.block!.hash} failed validation - invalid hash`);
-              return;
-            }
-            addActivityLog('validation', `Block ${msg.block!.hash} validation successful`);
-            this.consensus.propose(msg.block!);
-          })();
-        }
-        addActivityLog('network', `Node ${this.id} received new block ${msg.block!.hash} from ${msg.from}`);
-        break;
-      case 'BLOCKCHAIN_RESET':
-        if (msg.from !== this.id) { // Don't reset if we initiated it
-          // Stop mining if active
-          if (this.mining) {
-            this.stopMining();
-          }
-
-          // Clear local state
-          this.chain = [];
-          this.mempool = [];
-          this.contracts = {};
-          this.balances = { [this.id]: 100 };
-
-          // Clear localStorage
-          localStorage.removeItem('chain');
-          localStorage.removeItem('balances');
-
-          // Reset difficulty to default
-          this.difficulty = 4;
-          localStorage.setItem('networkDifficulty', '4');
-
-          // Emit state changes
-          this._emit('chain');
-          this._emit('mempool');
-          this._emit('balances');
-          this._emit('contracts');
-
-          addActivityLog('network', `Blockchain reset by ${msg.from}`);
-        }
-        break;
-      case 'VOTE':
-        if (msg.block) {
-          this.consensus.handleMessage({
-            type: 'VOTE',
-            from: msg.from,
-            blockHash: msg.block.hash,
-            block: msg.block
-          });
-        }
-        break;
+    const handler = handlers[msg.type];
+    if (handler) {
+      handler(msg);
     }
   }
 }
