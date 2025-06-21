@@ -25,5 +25,5 @@
 <script setup lang="ts">
 import { inject } from 'vue'
 const blockchain = inject('blockchainNode')
-const contracts = blockchain.contracts.value
+const contracts = blockchain.contracts
 </script>

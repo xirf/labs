@@ -30,3 +30,7 @@ export const addActivityLog = (type: ActivityLog['type'], message: string) => {
         activityLogs.value = activityLogs.value.slice(-100)
     }
 }
+
+export const clearActivityLogs = () => {
+    activityLogs.value = []
+}

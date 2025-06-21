@@ -23,6 +23,8 @@ export class BlockchainNode {
   chain: Block[];             // Array of blocks in the blockchain
   mempool: Transaction[];    // Array of pending transactions
   contracts: { [address: string]: { code: string, state: any } }; // Deployed contracts
+  balances: { [addr: string]: number };          // Simple token balances
+  peerLastSeen: Map<string, number>;             // Last heartbeat timestamp
   bus: LocalStorageBus;                       // Local storage-based message bus
   consensus: PoAConsensus;                   // Proof of Authority consensus instance
   listeners: { [evt: string]: Function[] }; // Event listeners for chain, peers, mempool
@@ -38,6 +40,10 @@ export class BlockchainNode {
     this.chain = JSON.parse(localStorage.getItem('chain') || '[]');
     this.mempool = [];
     this.contracts = {};
+    this.balances = JSON.parse(localStorage.getItem('balances') || '{}');
+    if (!this.balances[this.id]) this.balances[this.id] = 100;
+    localStorage.setItem('balances', JSON.stringify(this.balances));
+    this.peerLastSeen = new Map([[this.id, Date.now()]]);
     // --- infra ---------------------------------------------------------------
     this.bus = new LocalStorageBus(this.id, this._onBusMessage.bind(this));
     this.consensus = new PoAConsensus(this.id,
@@ -50,7 +56,8 @@ export class BlockchainNode {
       peers: [],
       mempool: [],
       contracts: [],
-      difficulty: []
+      difficulty: [],
+      balances: []
     };
     // --- mining --------------------------------------------------------------
     this.mining = false;
@@ -68,6 +75,20 @@ export class BlockchainNode {
     setInterval(() => {
       this.bus.broadcast({ type: 'HEARTBEAT', from: this.id });
     }, 5 * 1000); // every 5 seconds
+
+    // Cleanup stale peers
+    setInterval(() => {
+      const now = Date.now();
+      for (const [peer, ts] of this.peerLastSeen.entries()) {
+        if (peer === this.id) continue;
+        if (now - ts > 15 * 1000) {
+          this.peers.delete(peer);
+          this.peerLastSeen.delete(peer);
+          this._emit('peers');
+          addActivityLog('network', `Removed inactive peer ${peer}`);
+        }
+      }
+    }, 15 * 1000);
   }
 
 
@@ -82,16 +103,18 @@ export class BlockchainNode {
       mempool: clone(this.mempool),
       peers: new Set(this.peers),
       difficulty: this.difficulty,
-      contracts: { ...this.contracts } // shallow copy of contracts
+      contracts: { ...this.contracts }, // shallow copy of contracts
+      balances: { ...this.balances }
     };
   }
 
-  createTx(payload: any, to: string = '') {
+  createTx(payload: any, to: string = '', amount: number = 0) {
     const tx = new Transaction({
       type: 'transfer',
       from: this.id,
       payload,
-      to
+      to,
+      amount
     });
     this.mempool.push(tx); this._emit('mempool');
     this.bus.broadcast({ type: 'TX', from: this.id, tx });
@@ -230,12 +253,23 @@ export class BlockchainNode {
       } else if (tx.type === 'call') {
         const c = this.contracts[tx.to];
         if (c) ContractEngine.call(c, tx.payload, this.contracts);
+      } else if (tx.type === 'transfer') {
+        if (!this.balances[tx.from]) this.balances[tx.from] = 0;
+        if (!this.balances[tx.to]) this.balances[tx.to] = 0;
+        if (this.balances[tx.from] >= tx.amount) {
+          this.balances[tx.from] -= tx.amount;
+          this.balances[tx.to] += tx.amount;
+        }
       }
     }
 
     this.chain.push(block);
     localStorage.setItem('chain', JSON.stringify(this.chain));
-    this._emit('chain'); this._emit('mempool');
+    localStorage.setItem('balances', JSON.stringify(this.balances));
+    this._emit('chain');
+    this._emit('mempool');
+    this._emit('balances');
+    this._emit('contracts');
   }
 
   _onBusMessage(msg: BlockchainNodeMessage) {
@@ -244,6 +278,7 @@ export class BlockchainNode {
     switch (msg.type) {
       case 'HELLO':
         this.peers.add(msg.from);
+        this.peerLastSeen.set(msg.from, Date.now());
         this._emit('peers');
         // handshake
         if (msg.from !== this.id) this.bus.broadcast({ type: 'HELLO_ACK', from: this.id, to: msg.from });
@@ -252,26 +287,21 @@ export class BlockchainNode {
       case 'HELLO_ACK':
         if (msg.to === this.id) {
           this.peers.add(msg.from);
+          this.peerLastSeen.set(msg.from, Date.now());
           this._emit('peers');
         }
         addActivityLog('network', `Node ${this.id} acknowledged peer ${msg.from}`);
         break;
       case 'GOODBYE':
         this.peers.delete(msg.from);
+        this.peerLastSeen.delete(msg.from);
         this._emit('peers');
         addActivityLog('network', `Node ${msg.from} disconnected`);
         break;
 
       case 'HEARTBEAT':
         this.peers.add(msg.from);
-        // Clean up old peers if they haven't sent a heartbeat in a while
-        setTimeout(() => {
-          if (!this.peers.has(msg.from)) {
-            this.peers.delete(msg.from);
-            this._emit('peers');
-            addActivityLog('network', `Removed inactive peer ${msg.from}`);
-          }
-        }, 10 * 1000); // 10 seconds grace period
+        this.peerLastSeen.set(msg.from, Date.now());
         break;
       case 'DIFFICULTY_UPDATE':
         if (msg.difficulty && msg.difficulty !== this.difficulty) {
@@ -318,9 +348,11 @@ export class BlockchainNode {
           this.chain = [];
           this.mempool = [];
           this.contracts = {};
+          this.balances = { [this.id]: 100 };
 
           // Clear localStorage
           localStorage.removeItem('chain');
+          localStorage.removeItem('balances');
 
           // Reset difficulty to default
           this.difficulty = 4;
@@ -329,6 +361,8 @@ export class BlockchainNode {
           // Emit state changes
           this._emit('chain');
           this._emit('mempool');
+          this._emit('balances');
+          this._emit('contracts');
 
           addActivityLog('network', `Blockchain reset by ${msg.from}`);
         }

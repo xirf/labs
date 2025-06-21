@@ -29,7 +29,7 @@
 <script setup lang="ts">
 import { ref, provide, onMounted, onUnmounted } from 'vue'
 import { BlockchainNode } from './services/BlockchainNode.js'
-import { activityLogs } from './utils/log.ts'
+import { activityLogs, clearActivityLogs } from './utils/log.ts'
 
 import AppHeader from './components/AppHeader.vue'
 import MiningControls from './components/MiningControls.vue'
@@ -49,6 +49,7 @@ const chain = ref([])
 const mempool = ref([])
 const peers = ref(new Set())
 const contracts = ref({})
+const balances = ref({})
 
 // Node instance
 let node: BlockchainNode | null = null
@@ -63,7 +64,9 @@ provide('blockchainNode', {
   mempool,
   peers,
   contracts,
-  activityLogs
+  balances,
+  activityLogs,
+  clearActivityLogs
 })
 
 const formatTime = (timestamp) => {
@@ -91,6 +94,14 @@ onMounted(() => {
     peers.value = state.peers
   })
 
+  node.on('contracts', (state) => {
+    contracts.value = state.contracts
+  })
+
+  node.on('balances', (state) => {
+    balances.value = state.balances
+  })
+
   node.on('difficulty', (state) => {
     difficulty.value = state.difficulty
   })
@@ -101,6 +112,7 @@ onMounted(() => {
   mempool.value = initialState.mempool
   peers.value = initialState.peers
   contracts.value = node.contracts
+  balances.value = initialState.balances
 })
 
 onUnmounted(() => {

@@ -3,17 +3,17 @@
         <div class="p-4 border-b border-gray-200 dark:border-gray-700">
             <h2 class="text-lg font-semibold flex items-center gap-2">
                 <i class="i-myna-clock text-yellow-500"></i>
-                Mempool ({{ mempool.length }})
+                Mempool ({{ mempool.value.length }})
             </h2>
         </div>
         <div class="p-4 max-h-64 overflow-y-auto">
-            <div v-if="mempool.length === 0"
+            <div v-if="mempool.value.length === 0"
                  class="text-center text-gray-500 py-4">
                 No pending transactions
             </div>
             <div v-else
                  class="space-y-2">
-                <div v-for="tx in mempool"
+                <div v-for="tx in mempool.value"
                      :key="tx.id"
                      class="border border-gray-200 dark:border-gray-600 rounded p-2 text-sm">
                     <div class="flex items-center justify-between mb-1">
@@ -38,7 +38,7 @@
 </template>
 
 <script setup lang="ts">
-import { inject, ref } from 'vue'
+import { inject } from 'vue'
 const blockchain = inject('blockchainNode')
-const mempool = blockchain.mempool.value
+const mempool = blockchain.mempool
 </script>
