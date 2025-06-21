@@ -10,7 +10,7 @@
                         class="text-xs text-gray-500 hover:text-gray-700">Clear</button>
             </div>
         </div>
-        <div class="p-4 max-h-48 overflow-y-auto">
+        <div class="p-4 max-h-92 overflow-y-auto">
             <div v-if="activityLogs.length === 0"
                  class="text-center text-gray-500 py-4">
                 No activity yet
@@ -19,17 +19,40 @@
                  class="space-y-1">
                 <div v-for="log in activityLogs.slice().reverse().slice(0, 50)"
                      :key="log.id"
-                     class="text-xs p-1 rounded"
+                     class="text-xs p-1 rounded break-all"
                      :class="{
                         'text-blue-600 dark:text-blue-400': log.type === 'transaction',
                         'text-green-600 dark:text-green-400': log.type === 'mining',
                         'text-purple-600 dark:text-purple-400': log.type === 'contract',
                         'text-yellow-600 dark:text-yellow-400': log.type === 'network',
-                        'text-red-600 dark:text-red-400': log.type === 'error',
-                        'bg-gray-400 dark:bg-gray-700': log.type == 'info'
+                        'text-red-600 dark:text-red-400 bg-red-500/10': log.type === 'found',
+                        'text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700': log.type === 'info',
+                        'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20': log.type === 'consensus',
+                        'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20': log.type === 'governance',
+                        'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20': log.type === 'validation',
+                        'text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/20': log.type === 'peer',
+                        'text-red-800 dark:text-red-300 bg-red-100 dark:bg-red-900/30': log.type === 'error'
                     }">
-                    <span class="text-gray-500">{{ formatTime(log.timestamp) }}</span>
-                    {{ log.message }}
+                    <div class="flex items-start gap-1">
+                        <i class="shrink-0 translate-y-0.5"
+                           :class="{
+                               'i-myna-file-check': log.type === 'transaction',
+                               'i-lucide-pickaxe': log.type === 'mining',
+                               'i-myna-code': log.type === 'contract',
+                               'i-myna-globe': log.type === 'network',
+                               'i-myna-star': log.type === 'found',
+                               'i-lucide-info': log.type === 'info',
+                               'i-solar-hand-shake-linear': log.type === 'consensus',
+                               'i-solar-crown-broken': log.type === 'governance',
+                               'i-myna-shield-check': log.type === 'validation',
+                               'i-myna-users': log.type === 'peer',
+                               'i-solar-shield-warning-outline': log.type === 'error'
+                           }"></i>
+                        <div class="flex-1">
+                            <span class="text-gray-500">{{ formatTime(log.timestamp) }}</span>
+                            <span class="ml-1">{{ log.message }}</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

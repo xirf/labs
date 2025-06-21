@@ -44,6 +44,7 @@ export default defineConfig({
         presetIcons({
             collections: {
                 myna: () => import("@iconify-json/mynaui/icons.json").then((i) => i.default),
+                lucide: () => import("@iconify-json/lucide/icons.json").then((i) => i.default),
                 solar: () => import("@iconify-json/solar/icons.json").then((i) => i.default),
             },
             extraProperties: {

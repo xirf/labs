@@ -24,10 +24,10 @@ export class PoAConsensus {
 
     handleMessage(msg: { type: string, from: string, blockHash: string, block: Block }) {
         if (msg.type === 'VOTE') {
-            if (!msg.blockHash || !msg.block || msg.from === this.nodeId) return; // Ignore self votes
+            if (!msg.blockHash || !msg.block || msg.from === this.nodeId) return;
 
-            addActivityLog('info', `Node ${this.nodeId} received vote for block ${msg.blockHash} from ${msg.from}`);
-            
+            addActivityLog('consensus', `Node ${this.nodeId} received vote for block ${msg.blockHash} from ${msg.from}`);
+
             const s = this.votes.get(msg.blockHash) || new Set();
             s.add(msg.from); this.votes.set(msg.blockHash, s);
 
@@ -35,15 +35,14 @@ export class PoAConsensus {
             if (s.size >= majority) {
                 this.commitCb(msg.block);
                 this.votes.delete(msg.blockHash);
-                addActivityLog('info', `Node ${this.nodeId} committed block ${msg.blockHash} with ${s.size} votes`);
+                addActivityLog('consensus', `Block ${msg.blockHash} reached consensus with ${s.size}/${this.getPeers().size} votes`);
             }
         }
     }
 
-    /** Proposer calls after mining to kick off voting */
     propose(block: Block) {
         this.votes.set(block.hash, new Set([this.nodeId]));
         this.send({ type: 'VOTE', from: this.nodeId, blockHash: block.hash, block });
-        addActivityLog('info', `Node ${this.nodeId} proposed block ${block.hash}`);
+        addActivityLog('consensus', `Node ${this.nodeId} proposed block ${block.hash} for consensus`);
     }
 }

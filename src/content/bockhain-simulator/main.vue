@@ -87,6 +87,7 @@ onMounted(() => {
   })
 
   node.on('mempool', (state) => {
+    console.log('Mempool updated:', state.mempool)
     mempool.value = state.mempool
   })
 
@@ -108,11 +109,11 @@ onMounted(() => {
 
   // Initial state
   const initialState = node.getState()
-  chain.value = initialState.chain
-  mempool.value = initialState.mempool
-  peers.value = initialState.peers
-  contracts.value = node.contracts
-  balances.value = initialState.balances
+  chain.value = initialState.chain || []
+  mempool.value = initialState.mempool || []
+  peers.value = initialState.peers || new Set()
+  contracts.value = node.contracts || {}
+  balances.value = initialState.balances || {}
 })
 
 onUnmounted(() => {

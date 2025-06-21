@@ -6,34 +6,40 @@
         Create Transaction
       </h2>
     </div>
-  <div class="p-4 space-y-4">
-    <div>
-      <label class="block text-sm font-medium mb-2">Message/Data</label>
-      <textarea v-model="txPayload"
-                rows="3"
-                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
-                placeholder="Enter transaction data..."></textarea>
+    <div class="p-4 space-y-4">
+      <div>
+        <label class="block text-sm font-medium mb-2">Message/Data</label>
+        <textarea v-model="txPayload"
+                  rows="3"
+                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
+                  placeholder="Enter transaction data..."></textarea>
+      </div>
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <label class="block text-sm font-medium mb-2">To (node ID)</label>
+          <button @click="getRandomNodeId"
+                  class="text-sm text-blue-500 hover:underline">
+            Randomize
+          </button>
+        </div>
+        <input v-model="txTo"
+               type="text"
+               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
+               placeholder="Recipient node id" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-2">Amount</label>
+        <input v-model.number="txAmount"
+               type="number"
+               min="0"
+               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
+               placeholder="Tokens" />
+      </div>
+      <button @click="createTransaction"
+              class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium">
+        Send Transaction
+      </button>
     </div>
-    <div>
-      <label class="block text-sm font-medium mb-2">To (node ID)</label>
-      <input v-model="txTo"
-             type="text"
-             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
-             placeholder="Recipient node id" />
-    </div>
-    <div>
-      <label class="block text-sm font-medium mb-2">Amount</label>
-      <input v-model.number="txAmount"
-             type="number"
-             min="0"
-             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
-             placeholder="Tokens" />
-    </div>
-    <button @click="createTransaction"
-            class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium">
-      Send Transaction
-    </button>
-  </div>
   </div>
 </template>
 
@@ -52,6 +58,16 @@ const createTransaction = () => {
     txPayload.value = ''
     txTo.value = ''
     txAmount.value = 0
+  }
+}
+
+const getRandomNodeId = () => {
+  const peers = Array.from(blockchain.peers.value)
+  if (peers.length > 1) {
+    const randomPeer = peers[Math.floor(Math.random() * peers.length)]
+    txTo.value = randomPeer
+  } else {
+    alert('No other peers available to send transaction to.')
   }
 }
 </script>

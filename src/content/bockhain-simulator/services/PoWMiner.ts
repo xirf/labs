@@ -10,7 +10,11 @@ export class PoWMiner {
             block.nonce++;
             const raw = `${block.index}|${block.prevHash}|${block.timestamp}|${block.nonce}|${JSON.stringify(block.transactions)}`;
             block.hash = await sha256(raw);
-            if (block.hash.startsWith(target)) break;
+            if (block.hash.startsWith(target)) {
+                // Found a valid hash
+                addActivityLog('found', `Found valid hash for block #${block.index}: ${block.hash}`);
+                break;
+            };
 
             // throttle a little to keep the tab responsive
             if (block.nonce % 100 === 0) {

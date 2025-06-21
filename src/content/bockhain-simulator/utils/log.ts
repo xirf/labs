@@ -5,11 +5,15 @@ import { ref } from "vue";
 // contract
 // network
 // error
-// inf
+// info
+// consensus
+// governance
+// validation
+// peer
 
 export interface ActivityLog {
     id: number;                                                                 // Unique ID for the log entry
-    type: 'transaction' | 'mining' | 'contract' | 'network' | 'error' | 'info'; // Type of activity
+    type: 'found'| 'transaction' | 'mining' | 'contract' | 'network' | 'error' | 'info' | 'consensus' | 'governance' | 'validation' | 'peer'; // Type of activity
     message: string;                                                            // Description of the activity
     timestamp: number;                                                          // Unix timestamp of when the activity occurred
 }

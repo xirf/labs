@@ -46,9 +46,7 @@ export class BlockchainNode {
     this.peerLastSeen = new Map([[this.id, Date.now()]]);
     // --- infra ---------------------------------------------------------------
     this.bus = new LocalStorageBus(this.id, this._onBusMessage.bind(this));
-    this.consensus = new PoAConsensus(this.id,
-      m => this.bus.broadcast(m),
-      () => this.peers);
+    this.consensus = new PoAConsensus( this.id, m => this.bus.broadcast(m), () => this.peers);
     this.consensus.onCommit(this._commitBlock.bind(this));
     // --- events --------------------------------------------------------------
     this.listeners = {
@@ -88,7 +86,7 @@ export class BlockchainNode {
           addActivityLog('network', `Removed inactive peer ${peer}`);
         }
       }
-    }, 15 * 1000);
+    }, 5 * 1000);
   }
 
 
@@ -207,15 +205,39 @@ export class BlockchainNode {
     addActivityLog('network', `Node ${this.id} initiated blockchain reset`);
   }
 
+  proposeValidator(nodeId: string) {
+    addActivityLog('governance', `Node ${this.id} proposed ${nodeId} as new validator`);
+    this.bus.broadcast({
+      type: 'PROPOSE_VALIDATOR',
+      from: this.id,
+      nodeId: nodeId
+    });
+  }
+
+  voteValidator(nodeId: string, approve: boolean) {
+    const action = approve ? 'approved' : 'rejected';
+    addActivityLog('governance', `Node ${this.id} ${action} validator proposal for ${nodeId}`);
+    this.bus.broadcast({
+      type: 'VOTE_VALIDATOR',
+      from: this.id,
+      nodeId: nodeId,
+      approve: approve
+    });
+  }
+
   /* =============== PRIVATE =============== 
   /* This is a private method to emit events to listeners */
   _emit(evt: string) {
     for (const f of this.listeners[evt]) f(this.getState());
   }
 
+
   async _mineLoop(diff: number) {
     while (this.mining && !this.minerAbort.killed) {
-      if (this.mempool.length === 0) { await new Promise(r => setTimeout(r, 500)); continue; }
+      if (this.mempool.length === 0) {
+        await new Promise(r => setTimeout(r, 500));
+        continue;
+      }
 
       const block = new Block({
         index: this.chain.length,
@@ -226,7 +248,14 @@ export class BlockchainNode {
       });
 
       const ok = await PoWMiner.mine(block, diff, this.minerAbort);
-      if (!ok) break; // mining stopped
+      if (!ok) {
+        // If mining was aborted due to new block, restart the loop
+        if (this.mining && this.minerAbort.killed) {
+          this.minerAbort = { killed: false };
+          continue; // Start mining the next block
+        }
+        break; // mining stopped manually
+      }
 
       // mined!
       this.bus.broadcast({ type: 'NEW_BLOCK', from: this.id, block });
@@ -240,6 +269,11 @@ export class BlockchainNode {
   _commitBlock(block: Block) {
     // prevent duplicates
     if (this.chain.find(b => b.hash === block.hash)) return;
+
+    // Stop mining when a new block is committed**
+    if (this.mining) {
+      this.minerAbort.killed = true;
+    }
 
     // remove txs
     const ids = new Set(block.transactions.map(t => t.id));
@@ -270,6 +304,13 @@ export class BlockchainNode {
     this._emit('mempool');
     this._emit('balances');
     this._emit('contracts');
+
+    // Restart mining if it was active**
+    if (this.mining) {
+      // Reset abort signal and continue mining
+      this.minerAbort = { killed: false };
+      // The existing mining loop will continue with the new blockchain state
+    }
   }
 
   _onBusMessage(msg: BlockchainNodeMessage) {
@@ -280,9 +321,8 @@ export class BlockchainNode {
         this.peers.add(msg.from);
         this.peerLastSeen.set(msg.from, Date.now());
         this._emit('peers');
-        // handshake
         if (msg.from !== this.id) this.bus.broadcast({ type: 'HELLO_ACK', from: this.id, to: msg.from });
-        addActivityLog('network', `Node ${this.id} connected to peer ${msg.from}`);
+        addActivityLog('peer', `New peer ${msg.from} joined the network`);
         break;
       case 'HELLO_ACK':
         if (msg.to === this.id) {
@@ -296,9 +336,8 @@ export class BlockchainNode {
         this.peers.delete(msg.from);
         this.peerLastSeen.delete(msg.from);
         this._emit('peers');
-        addActivityLog('network', `Node ${msg.from} disconnected`);
+        addActivityLog('peer', `Peer ${msg.from} left the network`);
         break;
-
       case 'HEARTBEAT':
         this.peers.add(msg.from);
         this.peerLastSeen.set(msg.from, Date.now());
@@ -331,8 +370,12 @@ export class BlockchainNode {
           (async () => {
             const raw = `${msg.block!.index}|${msg.block!.prevHash}|${msg.block!.timestamp}|${msg.block!.nonce}|${JSON.stringify(msg.block!.transactions)}`;
             const h = await sha256(raw);
-            if (h !== msg.block!.hash) return; // invalid
-            this.consensus.propose(msg.block!); // vote
+            if (h !== msg.block!.hash) {
+              addActivityLog('validation', `Block ${msg.block!.hash} failed validation - invalid hash`);
+              return;
+            }
+            addActivityLog('validation', `Block ${msg.block!.hash} validation successful`);
+            this.consensus.propose(msg.block!);
           })();
         }
         addActivityLog('network', `Node ${this.id} received new block ${msg.block!.hash} from ${msg.from}`);
