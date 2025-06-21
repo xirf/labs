@@ -31,7 +31,7 @@ export class PoAConsensus {
             const s = this.votes.get(msg.blockHash) || new Set();
             s.add(msg.from); this.votes.set(msg.blockHash, s);
 
-            const majority = Math.floor((this.getPeers().size + 1) / 2) + 1;
+            const majority = Math.floor(this.getPeers().size / 2) + 1;
             if (s.size >= majority) {
                 this.commitCb(msg.block);
                 this.votes.delete(msg.blockHash);

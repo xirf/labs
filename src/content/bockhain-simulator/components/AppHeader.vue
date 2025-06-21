@@ -15,6 +15,9 @@
           <div class="text-sm">
             Peers: {{ blockchain.peers.value.size }}
           </div>
+          <div class="text-sm">
+            Balance: {{ blockchain.balances.value[blockchain.nodeId.value] || 0 }}
+          </div>
         </div>
       </div>
     </div>

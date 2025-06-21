@@ -37,13 +37,12 @@
 </template>
 
 <script setup lang="ts">
-import { inject, ref } from 'vue'
+import { inject } from 'vue'
 const blockchain = inject('blockchainNode')
-const activityLogs = ref(blockchain.activityLogs)
+const activityLogs = blockchain.activityLogs
 
 const clearLogs = () => {
     blockchain.clearActivityLogs()
-    activityLogs.value = []
 }
 const formatTime = (timestamp: number) => {
     const date = new Date(timestamp)
