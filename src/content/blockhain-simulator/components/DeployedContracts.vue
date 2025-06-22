@@ -7,7 +7,7 @@
                 Deployed Contracts ({{ Object.keys(contracts).length }})
             </h2>
         </div>
-        <div class="p-4 max-h-48 overflow-y-auto">
+        <div class="p-4 overflow-y-auto">
             <div class="space-y-2">
                 <div v-for="(contract, addr) in contracts"
                      :key="addr"

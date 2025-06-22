@@ -21,14 +21,24 @@ export class LocalStorageBus {
     broadcast(msg: any) {
         const key = 'bc_msg_' + Date.now() + '_' + Math.random();
         localStorage.setItem(key, JSON.stringify(msg));
+        const newValue = JSON.stringify(msg)
 
         // Fire handler locally so this tab sees its own broadcast
-        window.dispatchEvent(new StorageEvent('storage', {
-            key, newValue: JSON.stringify(msg)
-        }));
-        
+        window.dispatchEvent(new StorageEvent('storage', { key, newValue }));
 
-        // Cleanup to avoid localStorage bloat
-        setTimeout(() => localStorage.removeItem(key), 1000);
+
+        const cleanedMsg = [
+            'HELLO',
+            'TX',
+            'NEW_BLOCK',
+            'BLOCKCHAIN_RESET',
+            'VOTE',
+        ]
+
+        if (!cleanedMsg.includes(msg.type)) {
+            setTimeout(() => {
+                localStorage.removeItem(key);
+            }, 500);
+        }
     }
 }

@@ -1,4 +1,4 @@
-import { uid, clone, sha256 } from '../utils/crypto';
+import { uid, clone, sha256, generateKeyPair, sign, verify } from '../utils/crypto';
 import { Transaction } from '../models/Transaction';
 import { Block } from '../models/Block';
 import { ContractEngine } from './ContractEngine';
@@ -23,14 +23,15 @@ export class BlockchainNode {
   chain: Block[];             // Array of blocks in the blockchain
   mempool: Transaction[];    // Array of pending transactions
   contracts: { [address: string]: { code: string, state: any } }; // Deployed contracts
-  balances: { [addr: string]: number };          // Simple token balances
-  peerLastSeen: Map<string, number>;             // Last heartbeat timestamp
+  balances: { [addr: string]: number };         // Simple token balances
+  peerLastSeen: Map<string, number>;           // Last heartbeat timestamp
   bus: LocalStorageBus;                       // Local storage-based message bus
   consensus: PoAConsensus;                   // Proof of Authority consensus instance
   listeners: { [evt: string]: Function[] }; // Event listeners for chain, peers, mempool
   mining: boolean;                         // Is this node currently mining?
   minerAbort: { killed: boolean };        // Abort signal for mining
   difficulty: number                     // Mining difficulty
+  keyPair: { publicKey: string, privateKey: string }; // Key pair for signing transactions
 
   constructor() {
     // --- identity & peers ----------------------------------------------------
@@ -61,6 +62,10 @@ export class BlockchainNode {
     this.mining = false;
     this.minerAbort = { killed: false };
     this.difficulty = parseInt(localStorage.getItem('networkDifficulty') || '4');
+
+    // --- Cryptographic keys --------------------------------
+    this.keyPair = this._loadOrGenerateKeys();
+
     // announce
     this.bus.broadcast({ type: 'HELLO', from: this.id });
 
@@ -110,7 +115,7 @@ export class BlockchainNode {
     };
   }
 
-  createTx(payload: any, to: string = '', amount: number = 0) {
+  async createTx(payload: any, to: string = '', amount: number = 0): Promise<string> {
     const tx = new Transaction({
       type: 'transfer',
       from: this.id,
@@ -118,31 +123,47 @@ export class BlockchainNode {
       to,
       amount
     });
-    this.mempool.push(tx); this._emit('mempool');
+
+    // Sign the transaction
+    await this._signTransaction(tx);
+
+    this.mempool.push(tx);
+    this._emit('mempool');
     this.bus.broadcast({ type: 'TX', from: this.id, tx });
     return tx.id;
   }
 
-  deployContract(code: string) {
+
+  async deployContract(code: string): Promise<string> {
     const tx = new Transaction({
       type: 'deploy',
       from: this.id,
       payload: code,
       to: '' // no recipient for deploy
     });
-    this.mempool.push(tx); this._emit('mempool');
+
+    // Sign the transaction
+    await this._signTransaction(tx);
+
+    this.mempool.push(tx);
+    this._emit('mempool');
     this.bus.broadcast({ type: 'TX', from: this.id, tx });
     return tx.id;
   }
 
-  callContract(address: string, input: any) {
+  async callContract(address: string, input: any): Promise<string> {
     const tx = new Transaction({
       type: 'call',
       from: this.id,
       to: address,
       payload: input
     });
-    this.mempool.push(tx); this._emit('mempool');
+
+    // Sign the transaction
+    await this._signTransaction(tx);
+
+    this.mempool.push(tx);
+    this._emit('mempool');
     this.bus.broadcast({ type: 'TX', from: this.id, tx });
     return tx.id;
   }
@@ -229,13 +250,161 @@ export class BlockchainNode {
     });
   }
 
+
+  /* ============================================================================ */
+  /*
+  /* MALICIOUS TRANSACTION SIMULATION
+  /*
+  /* ============================================================================ */
+
+  async createMaliciousTx(type: 'invalid_signature' | 'double_spend' | 'invalid_balance' | 'malformed_data' | 'replay_attack'): Promise<string> {
+    let tx: Transaction;
+
+    switch (type) {
+      case 'invalid_signature':
+        tx = new Transaction({
+          type: 'transfer',
+          from: this.id,
+          to: Array.from(this.peers)[1] || 'unknown',
+          amount: 10,
+          payload: 'Malicious transaction with invalid signature'
+        });
+        // Sign with wrong private key
+        tx.signature = await sign(`fake_data`, 'wrong_private_key');
+        tx.publicKey = this.keyPair.publicKey;
+        break;
+
+      case 'double_spend':
+        tx = new Transaction({
+          type: 'transfer',
+          from: this.id,
+          to: Array.from(this.peers)[1] || 'unknown',
+          amount: this.balances[this.id] + 100, // Spend more than available
+          payload: 'Double spend attempt'
+        });
+        await this._signTransaction(tx);
+        break;
+
+      case 'invalid_balance':
+        tx = new Transaction({
+          type: 'transfer',
+          from: this.id,
+          to: Array.from(this.peers)[1] || 'unknown',
+          amount: -50, // Negative amount
+          payload: 'Invalid negative amount'
+        });
+        await this._signTransaction(tx);
+        break;
+
+      case 'malformed_data':
+        tx = new Transaction({
+          type: 'transfer',
+          from: this.id,
+          to: Array.from(this.peers)[1] || 'unknown',
+          amount: 10,
+          payload: { malicious: true, script: '<script>alert("xss")</script>' }
+        });
+        await this._signTransaction(tx);
+        // Corrupt the transaction data after signing
+        tx.payload = null;
+        break;
+
+      case 'replay_attack':
+        // Find an existing transaction and replay it
+        const existingTx = this.chain.flatMap(block => block.transactions)[0];
+        if (existingTx) {
+          tx = new Transaction({
+            type: existingTx.type,
+            from: existingTx.from,
+            to: existingTx.to,
+            amount: existingTx.amount,
+            payload: existingTx.payload
+          });
+          // Use the old signature
+          tx.signature = existingTx.signature;
+          tx.publicKey = existingTx.publicKey;
+          tx.timestamp = existingTx.timestamp; // Same timestamp for replay
+        } else {
+          // Fallback if no existing transactions
+          tx = new Transaction({
+            type: 'transfer',
+            from: this.id,
+            to: Array.from(this.peers)[1] || 'unknown',
+            amount: 10,
+            payload: 'Replay attack attempt'
+          });
+          await this._signTransaction(tx);
+        }
+        break;
+
+      default:
+        throw new Error(`Unknown malicious transaction type: ${type}`);
+    }
+
+    // Broadcast the malicious transaction
+    this.bus.broadcast({ type: 'TX', from: this.id, tx });
+    addActivityLog('security', `Node ${this.id} sent malicious transaction: ${type}`);
+
+    return tx.id;
+  }
+
+  async createMaliciousBlock(): Promise<void> {
+    if (!this.mining) {
+      addActivityLog('security', 'Cannot create malicious block - not mining');
+      return;
+    }
+
+    // Create a block with invalid transactions
+    const maliciousTx = new Transaction({
+      type: 'transfer',
+      from: 'fake_node',
+      to: this.id,
+      amount: 1000000, // Huge amount
+      payload: 'Malicious block creation'
+    });
+
+    const block = new Block({
+      index: this.chain.length,
+      prevHash: 'INVALID_PREV_HASH', // Wrong previous hash
+      proposer: this.id,
+      difficulty: 1, // Low difficulty
+      transactions: [maliciousTx],
+    });
+
+    // Force a hash without proper mining
+    block.hash = await sha256('malicious_block_' + Date.now());
+    block.nonce = 0;
+
+    this.bus.broadcast({ type: 'NEW_BLOCK', from: this.id, block });
+    addActivityLog('security', `Node ${this.id} sent malicious block with invalid data`);
+  }
+
+
   /* ============================================================================ */
   /*
   /* PRIVATE API (internal use) 
   /*
   /* ============================================================================ */
+
   _emit(evt: string) {
     for (const f of this.listeners[evt]) f(this.getState());
+  }
+
+  private _loadOrGenerateKeys(): { publicKey: string, privateKey: string } {
+    const stored = localStorage.getItem(`keys_${this.id}`);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+
+    const keyPair = generateKeyPair();
+    localStorage.setItem(`keys_${this.id}`, JSON.stringify(keyPair));
+    return keyPair;
+  }
+
+  private async _signTransaction(tx: Transaction): Promise<void> {
+    const txData = `${tx.type}|${tx.from}|${tx.to}|${tx.amount}|${JSON.stringify(tx.payload)}|${tx.timestamp}`;
+    tx.signature = await sign(txData, this.keyPair.privateKey);
+    tx.publicKey = this.keyPair.publicKey;
   }
 
 
@@ -273,11 +442,20 @@ export class BlockchainNode {
     }
   }
 
-  _commitBlock(block: Block) {
+  private async _commitBlock(block: Block): Promise<void> {
     // prevent duplicates
     if (this.chain.find(b => b.hash === block.hash)) return;
 
-    // Stop mining when a new block is committed**
+    // Verify all transactions in the block
+    for (const tx of block.transactions) {
+      const isValid = await this._verifyTransaction(tx);
+      if (!isValid) {
+        addActivityLog('security', `Block ${block.hash} rejected - contains invalid transaction ${tx.id}`);
+        return;
+      }
+    }
+
+    // Stop mining when a new block is committed
     if (this.mining) {
       this.minerAbort.killed = true;
     }
@@ -286,14 +464,16 @@ export class BlockchainNode {
     const ids = new Set(block.transactions.map(t => t.id));
     this.mempool = this.mempool.filter(t => !ids.has(t.id));
 
-    // contracts
+    // contracts and balances processing
     for (const tx of block.transactions) {
       if (tx.type === 'deploy') {
         const c = ContractEngine.deploy(tx.payload);
         this.contracts[c.address] = c;
+        addActivityLog('contract', `Deployed contract ${c.address} with code: ${tx.payload.slice(0, 20)}...`);
       } else if (tx.type === 'call') {
         const c = this.contracts[tx.to];
         if (c) ContractEngine.call(c, tx.payload, this.contracts);
+        addActivityLog('contract', `Called contract ${tx.to} with input: ${JSON.stringify(tx.payload)}`);
       } else if (tx.type === 'transfer') {
         if (!this.balances[tx.from]) this.balances[tx.from] = 0;
         if (!this.balances[tx.to]) this.balances[tx.to] = 0;
@@ -305,6 +485,12 @@ export class BlockchainNode {
     }
 
     this.chain.push(block);
+
+    if (this.chain.length > 100) {
+      addActivityLog('network', `Node ${this.id} trimmed blockchain to last 100 blocks`);
+      this.chain = this.chain.slice(-100);
+    }
+
     localStorage.setItem('chain', JSON.stringify(this.chain));
     localStorage.setItem('balances', JSON.stringify(this.balances));
     this._emit('chain');
@@ -312,11 +498,9 @@ export class BlockchainNode {
     this._emit('balances');
     this._emit('contracts');
 
-    // Restart mining if it was active**
+    // Restart mining if it was active
     if (this.mining) {
-      // Reset abort signal and continue mining
       this.minerAbort = { killed: false };
-      // The existing mining loop will continue with the new blockchain state
     }
   }
 
@@ -339,6 +523,7 @@ export class BlockchainNode {
     }
     addActivityLog('network', `Node ${this.id} acknowledged peer ${msg.from}`);
   }
+
 
   private _handleGoodbye(msg: BlockchainNodeMessage) {
     this.peers.delete(msg.from);
@@ -364,13 +549,97 @@ export class BlockchainNode {
     }
   }
 
-  private _handleTransaction(msg: BlockchainNodeMessage) {
-    if (msg.tx && !this.mempool.find(t => t.id === msg.tx!.id)) {
-      this.mempool.push(msg.tx);
-      this._emit('mempool');
-      this.bus.broadcast(msg);
+  private async _verifyTransaction(tx: Transaction): Promise<boolean> {
+    try {
+      // Check for basic transaction structure
+      if (!tx.id || !tx.type || !tx.from || tx.timestamp === undefined) {
+        addActivityLog('security', `Transaction ${tx.id} rejected - missing required fields`);
+        return false;
+      }
+
+      // Check signature
+      if (!tx.signature || !tx.publicKey) {
+        addActivityLog('security', `Transaction ${tx.id} rejected - missing signature`);
+        return false;
+      }
+
+      // Verify signature
+      const txData = `${tx.type}|${tx.from}|${tx.to}|${tx.amount}|${JSON.stringify(tx.payload)}|${tx.timestamp}`;
+      const isValidSignature = await verify(txData, tx.signature, tx.publicKey);
+      if (!isValidSignature) {
+        addActivityLog('security', `Transaction ${tx.id} rejected - invalid signature`);
+        return false;
+      }
+
+      // Check for replay attacks (transaction too old)
+      const now = Date.now();
+      if (now - tx.timestamp > 60 * 60 * 1000) { // 1 hour
+        addActivityLog('security', `Transaction ${tx.id} rejected - too old (replay attack)`);
+        return false;
+      }
+
+      // Check for duplicate transactions
+      const isDuplicate = this.chain.some(block =>
+        block.transactions.some(existingTx =>
+          existingTx.id === tx.id ||
+          (existingTx.from === tx.from &&
+            existingTx.to === tx.to &&
+            existingTx.amount === tx.amount &&
+            existingTx.timestamp === tx.timestamp)
+        )
+      );
+      if (isDuplicate) {
+        addActivityLog('security', `Transaction ${tx.id} rejected - duplicate transaction`);
+        return false;
+      }
+
+      // Check transaction-specific rules
+      if (tx.type === 'transfer') {
+        // Check for negative amounts
+        if (tx.amount < 0) {
+          addActivityLog('security', `Transaction ${tx.id} rejected - negative amount`);
+          return false;
+        }
+
+        // Check sender balance (basic check)
+        if (this.balances[tx.from] !== undefined && this.balances[tx.from] < tx.amount) {
+          addActivityLog('security', `Transaction ${tx.id} rejected - insufficient balance`);
+          return false;
+        }
+      }
+
+      // Check payload for malicious content
+      if (tx.payload && typeof tx.payload === 'string') {
+        const maliciousPatterns = [/<script/i, /javascript:/i, /on\w+=/i];
+        if (maliciousPatterns.some(pattern => pattern.test(tx.payload))) {
+          addActivityLog('security', `Transaction ${tx.id} rejected - malicious payload detected`);
+          return false;
+        }
+      }
+
+      return true;
+    } catch (error) {
+      addActivityLog('security', `Transaction ${tx.id} rejected - verification error: ${error}`);
+      return false;
     }
-    addActivityLog('transaction', `Node ${this.id} received transaction ${msg.tx!.id} from ${msg.from}`);
+  }
+
+  private async _handleTransaction(msg: BlockchainNodeMessage): Promise<void> {
+    if (!msg.tx || this.mempool.find(t => t.id === msg.tx!.id)) {
+      return;
+    }
+
+    // Verify transaction signature
+    const isValid = await this._verifyTransaction(msg.tx);
+    if (!isValid) {
+      addActivityLog('security', `Node ${this.id} rejected invalid transaction ${msg.tx.id} from ${msg.from}`);
+      return;
+    }
+
+    this.mempool.push(msg.tx);
+    this._emit('mempool');
+    this.bus.broadcast(msg);
+    addActivityLog('transaction', `Node ${this.id} received valid transaction ${msg.tx.id} from ${msg.from}`);
   }
 
   private _handleNewBlock(msg: BlockchainNodeMessage) {
@@ -380,17 +649,53 @@ export class BlockchainNode {
     addActivityLog('network', `Node ${this.id} received new block ${msg.block!.hash} from ${msg.from}`);
   }
 
-  private async _validateAndProposeBlock(block: Block) {
-    const raw = `${block.index}|${block.prevHash}|${block.timestamp}|${block.nonce}|${JSON.stringify(block.transactions)}`;
-    const hash = await sha256(raw);
+  private async _validateAndProposeBlock(block: Block): Promise<void> {
+    try {
+      // Check block structure
+      if (!block.hash || !block.prevHash || block.index === undefined) {
+        addActivityLog('security', `Block ${block.hash} rejected - missing required fields`);
+        return;
+      }
 
-    if (hash !== block.hash) {
-      addActivityLog('validation', `Block ${block.hash} failed validation - invalid hash`);
-      return;
+      // Verify block hash
+      const raw = `${block.index}|${block.prevHash}|${block.timestamp}|${block.nonce}|${JSON.stringify(block.transactions)}`;
+      const expectedHash = await sha256(raw);
+
+      if (expectedHash !== block.hash) {
+        addActivityLog('security', `Block ${block.hash} rejected - invalid hash`);
+        return;
+      }
+
+      // Check previous hash
+      if (this.chain.length > 0) {
+        const lastBlock = this.chain[this.chain.length - 1];
+        if (block.prevHash !== lastBlock.hash) {
+          addActivityLog('security', `Block ${block.hash} rejected - invalid previous hash`);
+          return;
+        }
+      }
+
+      // Check difficulty
+      const target = '0'.repeat(block.difficulty);
+      if (!block.hash.startsWith(target)) {
+        addActivityLog('security', `Block ${block.hash} rejected - insufficient difficulty`);
+        return;
+      }
+
+      // Verify all transactions in the block
+      for (const tx of block.transactions) {
+        const isValid = await this._verifyTransaction(tx);
+        if (!isValid) {
+          addActivityLog('security', `Block ${block.hash} rejected - contains invalid transaction ${tx.id}`);
+          return;
+        }
+      }
+
+      addActivityLog('validation', `Block ${block.hash} validation successful`);
+      this.consensus.propose(block);
+    } catch (error) {
+      addActivityLog('security', `Block ${block.hash} rejected - validation error: ${error}`);
     }
-
-    addActivityLog('validation', `Block ${block.hash} validation successful`);
-    this.consensus.propose(block);
   }
 
   private _handleBlockchainReset(msg: BlockchainNodeMessage) {

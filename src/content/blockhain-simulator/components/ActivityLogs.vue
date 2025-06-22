@@ -2,12 +2,26 @@
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
         <div class="p-4 border-b border-gray-200 dark:border-gray-700">
             <div class="flex justify-between items-center">
-                <h2 class="text-lg font-semibold flex items-center gap-2">
+                <h2 class="text-lg font-semibold flex items-center gap-2 grow">
                     <i class="i-myna-activity text-red-500"></i>
                     Activity Log
                 </h2>
-                <button @click="clearLogs"
-                        class="text-xs text-gray-500 hover:text-gray-700">Clear</button>
+                <div class="flex items-center gap-2 flex-wrap justify-end">
+                    <button @click="clearLogs"
+                            class="text-xs border rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-100 border-gray-300 dark:border-gray-600 flex items-center gap-2">
+                        <i class="i-myna-trash text-red-500  w4 h4"></i>
+                        Clear
+                    </button>
+                    <select v-model="selectedType"
+                            class="text-xs border rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-100 border-gray-300 dark:border-gray-600 flex items-center gap-2">
+                        <option value="">All</option>
+                        <option v-for="type in logTypes"
+                                :key="type"
+                                :value="type">
+                            {{ type }}
+                        </option>
+                    </select>
+                </div>
             </div>
         </div>
         <div class="p-4 max-h-92 overflow-y-auto">
@@ -17,7 +31,7 @@
             </div>
             <div v-else
                  class="space-y-1">
-                <div v-for="log in activityLogs?.slice().reverse().slice(0, 50)"
+                <div v-for="log in filteredLogs.slice().reverse().slice(0, 50)"
                      :key="log.id"
                      class="text-xs p-1 rounded break-all"
                      :class="{
@@ -31,7 +45,8 @@
                         'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20': log.type === 'governance',
                         'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20': log.type === 'validation',
                         'text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/20': log.type === 'peer',
-                        'text-red-800 dark:text-red-300 bg-red-100 dark:bg-red-900/30': log.type === 'error'
+                        'text-red-800 dark:text-red-300 bg-red-100 dark:bg-red-900/30': log.type === 'error',
+                        'text-red-100 dark:text-red-100 bg-red-700 dark:bg-red-900/75': log.type === 'security'
                     }">
                     <div class="flex items-start gap-1">
                         <i class="shrink-0 translate-y-0.5"
@@ -46,7 +61,7 @@
                             'i-solar-crown-broken': log.type === 'governance',
                             'i-myna-shield-check': log.type === 'validation',
                             'i-myna-users': log.type === 'peer',
-                            'i-solar-shield-warning-outline': log.type === 'error'
+                            'i-solar-shield-warning-outline': (log.type === 'error' || log.type === 'security'),
                         }"></i>
                         <div class="flex-1">
                             <span class="text-gray-500">{{ formatTime(log.timestamp) }}</span>
@@ -60,11 +75,23 @@
 </template>
 
 <script setup lang="ts">
-import { inject } from 'vue'
+import { computed, inject, ref } from 'vue'
 import type { BlockchainNodeState } from '../main.vue'
+
+const logTypes = [
+    'contract', 'transaction', 'mining', 'network',
+    'found', 'info', 'consensus', 'governance', 'validation', 'peer', 'error', 'security'
+]
 
 const blockchain = inject<BlockchainNodeState>('blockchainNode')
 const activityLogs = blockchain?.activityLogs
+const selectedType = ref('')
+
+const filteredLogs = computed(() => {
+    if (!activityLogs?.value) return []
+    if (!selectedType.value) return activityLogs.value
+    return activityLogs.value.filter(log => log.type === selectedType.value)
+})
 
 const clearLogs = () => {
     blockchain?.clearActivityLogs()

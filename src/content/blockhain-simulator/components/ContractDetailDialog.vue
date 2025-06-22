@@ -7,7 +7,7 @@
             <!-- Header -->
             <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
                 <h2 class="text-xl font-semibold flex items-center gap-2">
-                    <i class="i-myna-code text-purple-500"></i>
+                    <i class="i-solar-chat-square-code-broken text-purple-500"></i>
                     Contract Details
                 </h2>
                 <button @click="closeDialog"

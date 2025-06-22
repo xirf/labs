@@ -28,11 +28,6 @@
           Stop Mining
         </button>
       </div>
-      <button @click="resetBlockchain"
-              class="w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md font-medium flex items-center justify-center gap-2">
-        <i class="i-myna-refresh"></i>
-        Reset Blockchain
-      </button>
     </div>
   </div>
 </template>
@@ -73,15 +68,6 @@ const stopMining = (): void => {
   if (node && blockchain.mining.value) {
     node.stopMining()
     blockchain.mining.value = false
-  }
-}
-
-const resetBlockchain = (): void => {
-  const node = blockchain.node()
-  if (node && confirm('Are you sure you want to reset the blockchain? This will clear all blocks, transactions, and contracts across all connected nodes.')) {
-    node.resetBlockchain()
-    blockchain.mining.value = false
-    blockchain.difficulty.value = 4
   }
 }
 </script>

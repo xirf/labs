@@ -24,11 +24,19 @@
             <span class="text-sm">{{ blockchain?.mining.value ? 'Mining' : 'Idle' }}</span>
           </div>
           <div class="text-sm">
-            Peers: {{ blockchain?.peers.value.size }}
-          </div>
-          <div class="text-sm">
             Balance: {{ blockchain?.balances.value[blockchain.nodeId.value] || 0 }}
           </div>
+          <div class="text-sm">
+            Peers: {{ blockchain?.peers.value.size }}
+          </div>
+          <a href="#"
+             target="_blank"
+             rel="noopener noreferrer">
+            <div class="px4 py2 bg-blue-700 text-white rounded hover:bg-blue-600 transition-colors flex items-center gap-2">
+              <span class="ml-1">New Peer</span>
+              <i class="i-lucide-square-arrow-out-up-right h-4 w-4"></i>
+            </div>
+          </a>
         </div>
       </div>
     </div>

@@ -12,6 +12,7 @@ export interface ActivityLog {
     | 'consensus'
     | 'governance'
     | 'validation'
+    | 'security'
     | 'peer';
     message: string;     // Description of the activity
     timestamp: number;   // Unix timestamp of when the activity occurred

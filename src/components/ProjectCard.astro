@@ -17,26 +17,29 @@ const dateFormat = new Intl.DateTimeFormat('en-US', {
     day: 'numeric',
 })
 ---
-
 <div class="slide-enter" style={`--enter-stage: ${index};`}>
-    <a class="border border-gray-500/25 bg-l-base dark:(bg-d-base) rounded-lg block of-hidden group hover:(scale-101 shadow-xl z-10) transition-all duration-500 relative"
-       href={url}>
-        <img src={imageUrl} class="w-full border-b border-gray-500/10 w-full aspect-video bg-gray-500" alt={title}/>
-        <div class="prose prose-sm p4 m0 pb3">
-            <div class="prose m-auto slide-enter-content">
-                {description}
+    <div class="border border-gray-500/25 bg-d-base rounded-lg block of-hidden group hover:(scale-101 shadow-xl z-10) transition-all duration-500 relative">
+        <a href={url}>
+            <img src={imageUrl} class="w-full border-b border-gray-500/10 w-full aspect-video bg-gray-500" alt={title}/>
+        </a>
+        <div class="p4 m0 pb3">
+            <a href={url}>
+                <h2 class="text-lg font-semibold mb-1">{title}</h2>
+            </a>
+            <div class="prose slide-enter-content">
+                <p class="text-gray-400 mb-2">{description}</p>  
                 {github && (
-                        <div class="mt-2">
-                            <a href={github}
-                               target="_blank"
-                               rel="noopener noreferrer"
-                               class="text-blue-500 hover:underline">
-                                <i class="i-myna-brand-github w4 h4"></i> {( new URL ( github ) ).pathname}
-                            </a>
-                        </div>
+                    <div class="mt-2">
+                        <a href={github}
+                           target="_blank"
+                           rel="noopener noreferrer"
+                           class="hover:underline flex items-center gap-2 text-gray-300">
+                            <div class="i-myna-brand-github block w4 h4"></div> {( new URL ( github ) ).pathname.split ( '/' ).at(-1)}
+                        </a>
+                    </div>
                 )}
             </div>
             <div class="op50 text-sm pt2">{dateFormat.format ( date )}</div>
         </div>
-    </a>
+    </div>
 </div>

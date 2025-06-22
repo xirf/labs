@@ -15,17 +15,8 @@ export async function getStaticPaths () {
 
 const {entry} = Astro.props;
 const {Content} = await render ( entry );
-
-// Helper function to format date as dd-mm-yyyy
-function formatDate ( date: Date | string ): string {
-    const dateObj = date instanceof Date ? date : new Date ( date );
-    const day = dateObj.getDate ().toString ().padStart ( 2, '0' );
-    const month = ( dateObj.getMonth () + 1 ).toString ().padStart ( 2, '0' );
-    const year = dateObj.getFullYear ();
-    return `${day}-${month}-${year}`;
-}
 ---
 
-<Layout title={entry.data.title}>
+<Layout title={entry.data.title} description={entry.data.description} image={entry.data.imageUrl}>
     <Content/>
 </Layout>

@@ -8,6 +8,7 @@
         <div class="space-y-6">
           <MiningControls />
           <TransactionCreator />
+          <MaliciusTransactionCreator />
           <ContractDeployment />
         </div>
 
@@ -42,6 +43,7 @@ import NetworkPeers from './components/NetworkPeers.vue'
 import DeployedContracts from './components/DeployedContracts.vue'
 import type { Block } from './models/Block.ts'
 import type { Transaction } from './models/Transaction.ts'
+import MaliciusTransactionCreator from './components/MaliciusTransactionCreator.vue'
 
 // Reactive state
 const nodeId = ref('')

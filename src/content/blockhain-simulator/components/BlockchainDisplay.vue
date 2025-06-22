@@ -1,10 +1,15 @@
 <template>
   <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-    <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+    <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
       <h2 class="text-lg font-semibold flex items-center gap-2">
         <i class="i-myna-link text-green-500"></i>
         Blockchain ({{ blockchain?.chain?.value.length }} blocks)
       </h2>
+      <button @click="resetBlockchain"
+              class="text-xs border rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-100 border-gray-300 dark:border-gray-600 flex items-center gap-2">
+        <i class="i-myna-refresh  w4 h4"></i>
+        Reset
+      </button>
     </div>
     <div class="p-4 overflow-y-auto">
       <div v-if="blockchain?.chain?.value.length === 0"
@@ -24,16 +29,18 @@
             </div>
           </div>
           <div class="text-xs text-gray-600 dark:text-gray-400 font-mono">
-            Hash: {{ block.hash.slice(0, 16) }}...
+            Hash: {{ block.hash.slice(0, 30) }}...{{ block.hash.slice(-8) }}
           </div>
           <div class="text-xs text-gray-600 dark:text-gray-400">
-            Proposer: {{ block.proposer.slice(0, 8) }}...
+            Proposer: {{ block.proposer }}
           </div>
-          <div class="text-xs text-gray-600 dark:text-gray-400">
-            Transactions: {{ block.transactions.length }}
-          </div>
-          <div class="text-xs text-gray-600 dark:text-gray-400">
-            Nonce: {{ block.nonce }}
+          <div class="grid gap-2 grid-cols-2">
+            <div class="text-xs text-gray-600 dark:text-gray-400">
+              Transactions: {{ block.transactions.length }}
+            </div>
+            <div class="text-xs text-gray-600 dark:text-gray-400">
+              Nonce: {{ block.nonce }}
+            </div>
           </div>
           <div class="text-xs text-blue-600 dark:text-blue-400 mt-1">
             Click to view details
@@ -67,5 +74,15 @@ const viewBlock = (block: any) => {
 const closeDialog = () => {
   showDialog.value = false
   selectedBlock.value = null
+}
+
+const resetBlockchain = (): void => {
+  const node = blockchain?.node()
+  if (node && confirm('Are you sure you want to reset the blockchain? This will clear all blocks, transactions, and contracts across all connected nodes.')) {
+    node.resetBlockchain()
+    if (!blockchain || !blockchain.mining || !blockchain.difficulty) return
+    blockchain.mining.value = false
+    blockchain.difficulty.value = 4
+  }
 }
 </script>

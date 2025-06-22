@@ -1,10 +1,26 @@
 <template>
-  <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-    <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+  <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 relative">
+    <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
       <h2 class="text-lg font-semibold flex items-center gap-2">
-        <i class="i-myna-paper-plane text-blue-500"></i>
+        <i class="i-solar-plain-2-linear text-blue-500"></i>
         Create Transaction
       </h2>
+      <button @click="showHint = true"
+              class="text-xs border rounded px-2 text-yellow py-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 flex items-center gap-2">
+        <i class="i-mynaui-danger-triangle w4 h4"></i>
+        Info
+      </button>
+    </div>
+    <div v-if="showHint"
+         class="absolute top-0 right-10 z-50 w-96 p-4 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg">
+      <div class="flex justify-between items-center mb-2">
+        <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">⚠️ Attention</h3>
+        <button @click="showHint = false"
+                class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-sm">✖</button>
+      </div>
+      <div class="text-xs text-gray-700 dark:text-gray-300 space-y-2">
+        <p>This directly sends a token transfer between nodes. In real-world blockchains, most value transfers are handled through smart contract logic.</p>
+      </div>
     </div>
     <div class="p-4 space-y-4">
       <div>
@@ -46,6 +62,7 @@
   </div>
 </template>
 
+
 <script setup lang="ts">
 import { ref, inject, computed } from 'vue'
 import type { BlockchainNodeState } from '../main.vue'
@@ -54,6 +71,7 @@ const blockchain = inject<BlockchainNodeState>('blockchainNode')
 const txPayload = ref('')
 const txTo = ref('')
 const txAmount = ref(0)
+const showHint = ref(false)
 
 const currentBalance = computed(() => {
   return blockchain?.balances.value[blockchain.nodeId.value] || 0
